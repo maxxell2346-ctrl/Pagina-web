@@ -14,6 +14,6 @@ pool.query("SELECT NOW()")
     console.error("Error conectando a la base de datos", err);
   });
 
-app.listen(PORT, () => {
-  console.log(`Servidor corriendo en http://localhost:${PORT}`);
+app.listen(PORT, "0.0.0.0", () => {
+  console.log(`Servidor corriendo en http://192.168.56.1:${PORT}`);
 });

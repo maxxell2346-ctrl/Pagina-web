@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Vault</title>
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <div class="container">
+    <div class="row">
+      <h1>Mis contraseñas</h1>
+      <button id="btnLogout">Salir</button>
+    </div>
+
+    <div class="card">
+      <h2>Nueva credencial</h2>
+      <input id="serviceName" placeholder="Servicio (Instagram)" />
+      <input id="loginName" placeholder="Usuario / Email" />
+      <input id="secretValue" placeholder="Contraseña" />
+      <button id="btnCreate">Guardar</button>
+    </div>
+
+    <p id="message"></p>
+
+    <div class="card">
+      <h2>Lista</h2>
+      <div id="list"></div>
+    </div>
+  </div>
+
+  <script src="./api.js"></script>
+  <script src="./auth.js"></script>
+  <script src="./vault.js"></script>
+  <script>
+    const msg = document.getElementById("message");
+    const listDiv = document.getElementById("list");
+
+    // Si no hay token, afuera
+    if (!isLoggedIn()) {
+      window.location.href = "./index.html";
+    }
+
+    document.getElementById("btnLogout").addEventListener("click", () => {
+      logout();
+      window.location.href = "./index.html";
+    });
+
+    async function refreshList() {
+      try {
+        const data = await listVault();
+        listDiv.innerHTML = "";
+
+        data.items.forEach(item => {
+          const row = document.createElement("div");
+          row.className = "item";
+
+          row.innerHTML = `
+            <div>
+              <b>${item.service_name}</b><br/>
+              ${item.login_name}<br/>
+              <code>${item.secret_value}</code>
+            </div>
+            <div class="actions">
+              <button data-id="${item.id}" class="edit">Editar</button>
+              <button data-id="${item.id}" class="delete">Borrar</button>
+            </div>
+          `;
+
+          listDiv.appendChild(row);
+        });
+
+        // Botones borrar
+        document.querySelectorAll(".delete").forEach(btn => {
+          btn.addEventListener("click", async () => {
+            try {
+              const id = btn.getAttribute("data-id");
+              await deleteVaultItem(id);
+              await refreshList();
+            } catch (e) {
+              msg.textContent = e.message;
+            }
+          });
+        });
+
+        // Botones editar (simple: prompt)
+        document.querySelectorAll(".edit").forEach(btn => {
+          btn.addEventListener("click", async () => {
+            try {
+              const id = btn.getAttribute("data-id");
+              const serviceName = prompt("Servicio:");
+              const loginName = prompt("Usuario/Email:");
+              const secretValue = prompt("Contraseña:");
+              if (!serviceName || !loginName || !secretValue) return;
+
+              await updateVaultItem(id, serviceName, loginName, secretValue);
+              await refreshList();
+            } catch (e) {
+              msg.textContent = e.message;
+            }
+          });
+        });
+      } catch (e) {
+        msg.textContent = e.message;
+      }
+    }
+
+    document.getElementById("btnCreate").addEventListener("click", async () => {
+      try {
+        const serviceName = document.getElementById("serviceName").value;
+        const loginName = document.getElementById("loginName").value;
+        const secretValue = document.getElementById("secretValue").value;
+
+        await createVaultItem(serviceName, loginName, secretValue);
+        msg.textContent = "Guardado ✅";
+        await refreshList();
+      } catch (e) {
+        msg.textContent = e.message;
+      }
+    });
+
+    refreshList();
+  </script>
+</body>
+</html>

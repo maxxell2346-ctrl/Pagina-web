@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Login / Register</title>
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <div class="container">
+    <h1>Password Vault</h1>
+
+    <div class="card">
+      <h2>Register</h2>
+      <input id="regEmail" type="email" placeholder="Email" />
+      <input id="regPass" type="password" placeholder="Password" />
+      <button id="btnRegister">Crear cuenta</button>
+    </div>
+
+    <div class="card">
+      <h2>Login</h2>
+      <input id="logEmail" type="email" placeholder="Email" />
+      <input id="logPass" type="password" placeholder="Password" />
+      <button id="btnLogin">Entrar</button>
+    </div>
+
+    <p id="message"></p>
+  </div>
+
+  <script src="./api.js"></script>
+  <script src="./auth.js"></script>
+  <script>
+    // Si ya hay token, vamos directo al vault
+    if (isLoggedIn()) {
+      window.location.href = "./vault.html";
+    }
+
+    const msg = document.getElementById("message");
+
+    document.getElementById("btnRegister").addEventListener("click", async () => {
+      try {
+        const email = document.getElementById("regEmail").value;
+        const pass = document.getElementById("regPass").value;
+
+        await register(email, pass);
+        msg.textContent = "Usuario creado. Ahora podés loguearte.";
+      } catch (e) {
+        msg.textContent = e.message;
+      }
+    });
+
+    document.getElementById("btnLogin").addEventListener("click", async () => {
+      try {
+        const email = document.getElementById("logEmail").value;
+        const pass = document.getElementById("logPass").value;
+
+        await login(email, pass);
+        window.location.href = "./vault.html";
+      } catch (e) {
+        msg.textContent = e.message;
+      }
+    });
+  </script>
+</body>
+</html>
