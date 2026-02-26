@@ -31,7 +31,19 @@ async function findUserByEmail(email) {
   return result.rows[0];
 }
 
+async function markEmailVerified(userId) {
+  const query = `
+    UPDATE users
+    SET email_verified = TRUE
+    WHERE id = $1
+    RETURNING id, email, email_verified;
+  `;
+  const result = await pool.query(query, [userId]);
+  return result.rows[0];
+}
+
 module.exports = {
   createUser,
   findUserByEmail,
+  markEmailVerified,
 };
