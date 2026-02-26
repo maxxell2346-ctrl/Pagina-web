@@ -18,6 +18,10 @@ async function register(req, res) {
         message: "Email y password son obligatorios"
       });
     }
+    const existing = await userRepository.findUserByEmail(email);
+    if (existing) {
+      return res.status(409).json({ message: "Ese email ya está registrado" });
+    }
 
     const passwordHash = await bcrypt.hash(password, 10);
 
