@@ -15,3 +15,7 @@ function logout() {
 function isLoggedIn() {
   return !!localStorage.getItem("token");
 }
+
+async function verifyEmail(email, code) {
+  return apiRequest("/auth/verify-email", "POST", { email, code }, false);
+}

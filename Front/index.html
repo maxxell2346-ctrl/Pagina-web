@@ -17,6 +17,14 @@
       <button id="btnRegister">Crear cuenta</button>
     </div>
 
+    <!-- Paso 2: Verificación -->
+    <div class="card" id="verifySection" style="display:none;">
+      <h2>Verificar Email</h2>
+      <input id="verifyEmailInput" type="email" placeholder="Email" />
+      <input id="verifyCodeInput" type="text" placeholder="Código de 6 dígitos" />
+      <button id="btnVerify">Verificar</button>
+    </div>
+
     <div class="card">
       <h2>Login</h2>
       <input id="logEmail" type="email" placeholder="Email" />
@@ -27,37 +35,77 @@
     <p id="message"></p>
   </div>
 
+  <!-- IMPORTANTE: primero api.js, después auth.js -->
   <script src="./api.js"></script>
   <script src="./auth.js"></script>
+
   <script>
+    const msg = document.getElementById("message");
+    const verifySection = document.getElementById("verifySection");
+
+    // Debug mínimo: si no cargaron los JS, lo avisamos
+    if (typeof isLoggedIn !== "function") {
+      msg.textContent = "ERROR: no se cargó auth.js (revisá la ruta ./auth.js)";
+      throw new Error("auth.js no cargó");
+    }
+    if (typeof register !== "function" || typeof login !== "function") {
+      msg.textContent = "ERROR: no se cargó api.js o auth.js (revisá ./api.js y ./auth.js)";
+      throw new Error("api.js/auth.js no cargaron");
+    }
+
     // Si ya hay token, vamos directo al vault
     if (isLoggedIn()) {
       window.location.href = "./vault.html";
     }
 
-    const msg = document.getElementById("message");
-
+    // REGISTER
     document.getElementById("btnRegister").addEventListener("click", async () => {
       try {
-        const email = document.getElementById("regEmail").value;
+        const email = document.getElementById("regEmail").value.trim();
         const pass = document.getElementById("regPass").value;
 
         await register(email, pass);
-        msg.textContent = "Usuario creado. Ahora podés loguearte.";
+
+        msg.textContent = "Te enviamos un código a tu email.";
+        verifySection.style.display = "block";
+        document.getElementById("verifyEmailInput").value = email;
+
       } catch (e) {
-        msg.textContent = e.message;
+        msg.textContent = e?.message || "Error en register";
+        console.error(e);
       }
     });
 
+    // VERIFY
+    document.getElementById("btnVerify").addEventListener("click", async () => {
+      try {
+        const email = document.getElementById("verifyEmailInput").value.trim();
+        const code = document.getElementById("verifyCodeInput").value.trim();
+
+        await verifyEmail(email, code);
+
+        msg.textContent = "Email verificado correctamente. Ahora podés iniciar sesión.";
+        // opcional: esconder verificación
+        // verifySection.style.display = "none";
+
+      } catch (e) {
+        msg.textContent = e?.message || "Error en verifyEmail";
+        console.error(e);
+      }
+    });
+
+    // LOGIN
     document.getElementById("btnLogin").addEventListener("click", async () => {
       try {
-        const email = document.getElementById("logEmail").value;
+        const email = document.getElementById("logEmail").value.trim();
         const pass = document.getElementById("logPass").value;
 
         await login(email, pass);
         window.location.href = "./vault.html";
+
       } catch (e) {
-        msg.textContent = e.message;
+        msg.textContent = e?.message || "Error en login";
+        console.error(e);
       }
     });
   </script>
