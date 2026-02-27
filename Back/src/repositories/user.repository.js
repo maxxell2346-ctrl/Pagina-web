@@ -11,7 +11,6 @@ async function createUser(email, passwordHash) {
   const result = await pool.query(query, [email, passwordHash]);
   return result.rows[0];
 }
-
 // BUSCAR UN USUARIO POR MAIL
 async function findUserByEmail(email) {
   const query = `
