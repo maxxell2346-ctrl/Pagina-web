@@ -1,34 +1,54 @@
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
-const userRepository = require("../repositories/user.repository");
-
 const crypto = require("crypto");
+
+const pool = require("../db/connection"); // <-- asegúrate de que este path sea el correcto en tu proyecto
+
+const userRepository = require("../repositories/user.repository");
 const emailService = require("../services/email.service");
 const emailVerificationRepository = require("../repositories/emailVerification.repository");
 
-
-// ===================== REGISTER =============================================
+// ===================== REGISTER (CON TRANSACCIÓN) ============================
 
 async function register(req, res) {
+  const client = await pool.connect();
+
   try {
     const { email, password } = req.body;
 
     if (!email || !password) {
       return res.status(400).json({
-        message: "Email y password son obligatorios"
+        message: "Email y password son obligatorios",
       });
     }
-    const existing = await userRepository.findUserByEmail(email);
-    if (existing) {
+
+    // 1) START TRANSACTION
+    await client.query("BEGIN");
+
+    // 2) Verificar si ya existe
+    const existing = await client.query(
+      "SELECT id FROM users WHERE email = $1",
+      [email]
+    );
+
+    if (existing.rowCount > 0) {
+      await client.query("ROLLBACK");
       return res.status(409).json({ message: "Ese email ya está registrado" });
     }
 
+    // 3) Hash password y crear usuario
     const passwordHash = await bcrypt.hash(password, 10);
 
-    const user = await userRepository.createUser(email, passwordHash);
+    const created = await client.query(
+      `INSERT INTO users (email, password_hash)
+       VALUES ($1, $2)
+       RETURNING id, email, created_at, email_verified`,
+      [email, passwordHash]
+    );
 
-    // ===================== GENERAR CÓDIGO =========================
+    const user = created.rows[0];
 
+    // 4) Generar código y guardarlo como hash
     const code = String(Math.floor(100000 + Math.random() * 900000));
 
     const codeHash = crypto
@@ -39,27 +59,33 @@ async function register(req, res) {
     const ttlMin = Number(process.env.EMAIL_VERIFY_CODE_TTL_MIN || 10);
     const expiresAt = new Date(Date.now() + ttlMin * 60 * 1000);
 
-    await emailVerificationRepository.createVerification(
-      user.id,
-      codeHash,
-      expiresAt
+    // 5) Guardar verificación (MISMA TRANSACCIÓN)
+    await client.query(
+      `INSERT INTO email_verifications (user_id, code_hash, expires_at)
+       VALUES ($1, $2, $3)`,
+      [user.id, codeHash, expiresAt]
     );
 
+    // 6) Enviar email (si esto falla, hacemos rollback)
     await emailService.sendVerificationCode(user.email, code);
 
-    return res.status(201).json({
-      message: "Usuario creado. Te enviamos un código para verificar el email."
-    });
+    // 7) COMMIT (solo si TODO salió bien)
+    await client.query("COMMIT");
 
+    return res.status(201).json({
+      message: "Usuario creado. Te enviamos un código para verificar el email.",
+    });
   } catch (error) {
+    await client.query("ROLLBACK");
     console.error("REGISTER ERROR:", error);
 
     return res.status(500).json({
-      message: "Error interno del servidor"
+      message: "Error interno del servidor",
     });
+  } finally {
+    client.release();
   }
 }
-
 
 // ===================== LOGIN ===============================================
 
@@ -106,7 +132,6 @@ async function login(req, res) {
       message: "Login correcto",
       token,
     });
-
   } catch (error) {
     console.error("LOGIN ERROR:", error);
 
@@ -115,7 +140,6 @@ async function login(req, res) {
     });
   }
 }
-
 
 // ===================== VERIFY EMAIL =========================================
 
@@ -181,7 +205,6 @@ async function verifyEmail(req, res) {
     return res.status(200).json({
       message: "Email verificado correctamente",
     });
-
   } catch (error) {
     console.error("VERIFY EMAIL ERROR:", error);
 
@@ -191,7 +214,6 @@ async function verifyEmail(req, res) {
   }
 }
 
-
 // ===================== ME ====================================================
 
 function me(req, res) {
@@ -200,7 +222,6 @@ function me(req, res) {
     user: req.user,
   });
 }
-
 
 module.exports = {
   register,
