@@ -5,29 +5,23 @@ async function createUser(email, passwordHash) {
   const query = `
     INSERT INTO users (email, password_hash)
     VALUES ($1, $2)
-    RETURNING id, email, created_at;
+    RETURNING id, email, email_verified, created_at;
   `;
 
-  const values = [email, passwordHash];
-
-  const result = await pool.query(query, values);
-
+  const result = await pool.query(query, [email, passwordHash]);
   return result.rows[0];
 }
 
 // BUSCAR UN USUARIO POR MAIL
 async function findUserByEmail(email) {
   const query = `
-    SELECT id, email, password_hash, created_at
+    SELECT id, email, password_hash, email_verified, created_at
     FROM users
     WHERE email = $1
     LIMIT 1;
   `;
 
-  const values = [email];
-  const result = await pool.query(query, values);
-
-  // Si no encontró nada, rows[0] será undefined
+  const result = await pool.query(query, [email]);
   return result.rows[0];
 }
 
